@@ -4,8 +4,7 @@ import {
   GET_CART_LIST_QUERY,
   GET_CART_ITEMS_LIST_QUERY,
   UPDATE_COUNT_CART_BY_ID_QUERY,
-  DELETE_CART_QUERY,
-  GET_CART_BY_ID_QUERY,
+  DELETE_CART_ITEMS_QUERY,
 } from '../../db/db-queries';
 
 import { Cart } from '../models';
@@ -23,7 +22,7 @@ export class CartService {
         throw new Error(`Cart not found`);
       }
 
-      console.log(cart, "cart");
+      console.log(cart, 'cart');
       const items = await this.dbClient.query(GET_CART_ITEMS_LIST_QUERY, [
         cart.rows[0]?.id,
       ]);
@@ -35,10 +34,7 @@ export class CartService {
     }
   }
 
-  async updateByUserId(
-    userId: string,
-    { id: cart_id }: Cart,
-  ): Promise<Cart> {
+  async updateByUserId(userId: string, { id: cart_id }: Cart): Promise<Cart> {
     try {
       this.dbClient = await createDBConnection();
 
@@ -57,7 +53,8 @@ export class CartService {
   async removeByUserId(userId): Promise<void> {
     try {
       this.dbClient = await createDBConnection();
-      await this.dbClient.query(DELETE_CART_QUERY, [userId]);
+      const cart_item = await this.dbClient.query(DELETE_CART_ITEMS_QUERY, [userId]);
+      return cart_item.rows[0];
     } catch (err) {
       console.log('Error on service removeCartItem: ', err);
       return err;
