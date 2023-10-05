@@ -1,55 +1,64 @@
 import { Injectable } from '@nestjs/common';
-
-import { v4 } from 'uuid';
+import { createDBConnection } from '../../db/db-client';
+import {
+  GET_CART_LIST_QUERY,
+  GET_CART_ITEMS_LIST_QUERY,
+  UPDATE_COUNT_CART_BY_ID_QUERY,
+  DELETE_CART_ITEMS_QUERY,
+} from '../../db/db-queries';
 
 import { Cart } from '../models';
 
 @Injectable()
 export class CartService {
-  private userCarts: Record<string, Cart> = {};
+  private dbClient;
 
-  findByUserId(userId: string): Cart {
-    return this.userCarts[ userId ];
-  }
+  async findByUserId(userId: string): Promise<Cart> {
+    try {
+      this.dbClient = await createDBConnection();
+      const cart = await this.dbClient.query(GET_CART_LIST_QUERY, [userId]);
 
-  createByUserId(userId: string) {
-    const id = v4(v4());
-    const userCart = {
-      id,
-      items: [],
-    };
+      if (!cart) {
+        throw new Error(`Cart not found`);
+      }
 
-    this.userCarts[ userId ] = userCart;
+      const items = await this.dbClient.query(GET_CART_ITEMS_LIST_QUERY, [
+        cart.rows[0]?.id,
+      ]);
 
-    return userCart;
-  }
-
-  findOrCreateByUserId(userId: string): Cart {
-    const userCart = this.findByUserId(userId);
-
-    if (userCart) {
-      return userCart;
+      return { id: cart.rows[0]?.id, items: items.rows };
+    } catch (err) {
+      console.log('Error on service getCarts: ', err);
+      return err;
     }
-
-    return this.createByUserId(userId);
   }
 
-  updateByUserId(userId: string, { items }: Cart): Cart {
-    const { id, ...rest } = this.findOrCreateByUserId(userId);
+  async updateByUserId(userId: string, { productId, count }): Promise<{count: string}> {
+    try {
+      this.dbClient = await createDBConnection();
 
-    const updatedCart = {
-      id,
-      ...rest,
-      items: [ ...items ],
+      const updatedItem = await this.dbClient.query(
+        UPDATE_COUNT_CART_BY_ID_QUERY,
+        [userId, productId, count],
+      );
+
+      return { count: updatedItem.rows[0].count };
+    } catch (err) {
+      console.log('Error on service updateCartItem: ', err);
+      return err;
     }
-
-    this.userCarts[ userId ] = { ...updatedCart };
-
-    return { ...updatedCart };
   }
 
-  removeByUserId(userId): void {
-    this.userCarts[ userId ] = null;
+  async removeByUserId(userId): Promise<void> {
+    try {
+      this.dbClient = await createDBConnection();
+      const cart_item = await this.dbClient.query(DELETE_CART_ITEMS_QUERY, [
+        userId,
+      ]);
+      return cart_item.rows[0];
+    } catch (err) {
+      console.log('Error on service removeCartItem: ', err);
+      return err;
+    }
   }
-
 }
